@@ -4,9 +4,14 @@ require 'sshkit'
 require 'sshkit/dsl'
 require_relative 'dump_command'
 require_relative 'mailer'
+require 'open3'
+
 include SSHKit::DSL
 
 class Backupper
+
+  class CommandError < StandardError
+  end
 
   SSHKit::Backend::Netssh.configure do |ssh|
     ssh.connection_timeout = 30
@@ -43,9 +48,13 @@ class Backupper
           db_password:  o['db_password'],
           dump_options: o['dump_options'],
           outdir:       o['outdir'],
-          extra_copy:   o['extra_copy']
+          extra_copy:   o['extra_copy'],
+          local: o['local']
         )
       rescue SSHKit::Runner::ExecuteError => e
+        error(k, e.to_s)
+        puts e
+      rescue Backupper::CommandError => e
         error(k, e.to_s)
         puts e
       end
@@ -53,18 +62,26 @@ class Backupper
     send_report_email!
   end
 
-  def download_dump(key:, adapter: 'mysql', url:, password: nil, database:, db_username: 'root', db_password: nil, dump_options: nil, outdir:, extra_copy: nil)
+  def download_dump(key:, adapter: 'mysql', url:, password: nil, database:, db_username: 'root', db_password: nil, dump_options: nil, outdir:, extra_copy: nil, local: nil)
     t = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     path = nil
     filename = "#{key}__#{database}.sql.bz2"
     tempfile = File.join('/tmp', filename)
     dumpname = "#{Time.now.strftime('%Y-%m-%d_%H-%M-%S')}__#{filename}"
     path = File.join(outdir, dumpname)
-    on(url) do |client|
-      client.password = password
-      execute 'set -o pipefail; ' + DumpCommand.send(adapter, database: database, username: db_username, password: db_password, dump_options: dump_options, outfile: tempfile)
-      download! tempfile, path
-      execute :rm, tempfile
+    if local
+      cmd = DumpCommand.send(adapter, database: database, username: db_username, password: db_password, dump_options: dump_options, outfile: path)
+      stdout, stderr, status = Open3.capture3(cmd)
+      unless status.success?
+        raise CommandError.new(stderr)
+      end
+    else
+      on(url) do |client|
+        client.password = password
+        execute 'set -o pipefail; ' + DumpCommand.send(adapter, database: database, username: db_username, password: db_password, dump_options: dump_options, outfile: tempfile)
+        download! tempfile, path
+        execute :rm, tempfile
+      end
     end
     extra_copy = check_dir(extra_copy)
     FileUtils.cp(path, extra_copy) if extra_copy

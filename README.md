@@ -29,18 +29,17 @@ db1:
   port: 22                                     # server ssh port
   password: Pa$$w0rD                           # server ssh password
   adapter: mysql                               # database to backup (supported are mysql or postgresql)
-  database: db_name                            # database name
+  database: db_name                            # database name or use 'all-databases' to backup all database in mysql 
   db_username: db_user                         # database username
   db_password: db_Pa$$w0rD                     # database password
   dump_options: '--single-transaction --quick' # dump command extra options
+  local: false                                 # exec on local machine
 
 db2:
   disabled: false
+  local: true                                  #exec the dump on local machine without using ssh 
   dump: '/home/backup/db2'
   extra_copy: '/mnt/backup-disk/backups/db2'
-  username: user
-  host: '1.2.3.4'
-  port: 22
   password: Pa$$w0rD
   adapter: postgresql
   database: db_name
