@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'backupper'
+require_relative '../lib/backupper.rb'
 
 if ARGV.size != 1
   puts "usage: #{$0} path/to/config.yml"

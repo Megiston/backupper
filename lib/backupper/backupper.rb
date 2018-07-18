@@ -2,8 +2,8 @@ require 'yaml'
 require 'fileutils'
 require 'sshkit'
 require 'sshkit/dsl'
-require 'backupper/dump_command'
-require 'backupper/mailer'
+require_relative 'dump_command'
+require_relative 'mailer'
 include SSHKit::DSL
 
 class Backupper
